@@ -1,0 +1,112 @@
+[
+  {
+    "name": "Sunrise Hostel",
+    "location": "Delhi",
+    "description": "Affordable and comfortable hostel in Delhi.",
+    "images": [],
+    "roomTypes": [
+      { "type": "Single", "price": 4500 },
+      { "type": "Double", "price": 7000 }
+    ],
+    "amenities": ["WiFi", "Laundry", "CCTV"]
+  },
+  {
+    "name": "Moonlight Stay",
+    "location": "Mumbai",
+    "description": "Luxury hostel with seaview.",
+    "images": [],
+    "roomTypes": [
+      { "type": "AC", "price": 9000 },
+      { "type": "Non-AC", "price": 6000 }
+    ],
+    "amenities": ["WiFi", "AC", "Kitchen"]
+  },
+  {
+    "name": "Green Haven",
+    "location": "Bangalore",
+    "description": "Cozy and eco-friendly hostel in Bangalore.",
+    "images": [],
+    "roomTypes": [
+      { "type": "Single", "price": 5000 },
+      { "type": "Shared", "price": 3500 }
+    ],
+    "amenities": ["WiFi", "Parking", "Gym"]
+  },
+  {
+    "name": "City Nest",
+    "location": "Chennai",
+    "description": "Urban-style hostel for students.",
+    "images": [],
+    "roomTypes": [
+      { "type": "Dorm", "price": 3000 },
+      { "type": "Private", "price": 6500 }
+    ],
+    "amenities": ["WiFi", "Security", "Mess"]
+  },
+  {
+    "name": "Lakeview Hostel",
+    "location": "Hyderabad",
+    "description": "Hostel with scenic lake view.",
+    "images": [],
+    "roomTypes": [
+      { "type": "Single", "price": 6000 },
+      { "type": "Twin", "price": 7500 }
+    ],
+    "amenities": ["WiFi", "Laundry", "AC"]
+  },
+  {
+    "name": "Metro Stay",
+    "location": "Kolkata",
+    "description": "Centralized hostel with metro access.",
+    "images": [],
+    "roomTypes": [
+      { "type": "AC", "price": 8000 },
+      { "type": "Non-AC", "price": 5000 }
+    ],
+    "amenities": ["WiFi", "TV", "Security"]
+  },
+  {
+    "name": "Hillside Hostel",
+    "location": "Pune",
+    "description": "Peaceful hillside location for focused studies.",
+    "images": [],
+    "roomTypes": [
+      { "type": "Single", "price": 4800 },
+      { "type": "Double", "price": 6800 }
+    ],
+    "amenities": ["WiFi", "Garden", "Transport"]
+  },
+  {
+    "name": "Tech Nest",
+    "location": "Noida",
+    "description": "Ideal for tech students and IT interns.",
+    "images": [],
+    "roomTypes": [
+      { "type": "Dorm", "price": 4000 },
+      { "type": "Private", "price": 7000 }
+    ],
+    "amenities": ["WiFi", "Kitchen", "Gym"]
+  },
+  {
+    "name": "Campus Inn",
+    "location": "Ahmedabad",
+    "description": "Located near popular colleges.",
+    "images": [],
+    "roomTypes": [
+      { "type": "Single", "price": 5500 },
+      { "type": "Shared", "price": 3500 }
+    ],
+    "amenities": ["WiFi", "AC", "Laundry"]
+  },
+  {
+    "name": "Urban Stay",
+    "location": "Jaipur",
+    "description": "Modern hostel for urban dwellers.",
+    "images": [],
+    "roomTypes": [
+      { "type": "Private", "price": 6000 },
+      { "type": "Shared", "price": 4000 }
+    ],
+    "amenities": ["WiFi", "Security", "Food"]
+  }
+]
