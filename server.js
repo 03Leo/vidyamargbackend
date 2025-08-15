@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-const app = express();
-const port = 5000;
-const hostels = require('./dummyHostels.json')
 const nodemailer = require('nodemailer');
+require('dotenv').config(); // Load env variables
+
+const app = express();
+const port = process.env.PORT || 5000;
+const hostels = require('./dummyHostels.json');
 
 app.use(cors());
 app.use(express.json());
@@ -16,19 +18,17 @@ app.get('/api/hostels', (req, res) => {
 app.post('/api/send-mail', async (req, res) => {
     const { name, age, educationDomain, locationPreference, email, mobile, hostelName, hostelId } = req.body;
 
-    // Create transporter
     let transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: 'hk4hritikjaiswal@gmail.com',
-            pass: 'hgjokhjetzolmbfo'  // Use an App Password, not your Gmail password
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
         }
     });
 
-    // Mail content
     const mailOptions = {
-        from: 'hk4hritikjaiswal@gmail.com',
-        to: '03hritik.20@gmail.com', // Where you want to receive the mail
+        from: process.env.EMAIL_USER,
+        to: '03hritik.20@gmail.com',
         subject: `New Booking Request for ${hostelName}`,
         text: `
         Name: ${name}
