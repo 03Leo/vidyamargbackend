@@ -1,20 +1,192 @@
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
-require('dotenv').config(); // Load env variables
+const mysql = require('mysql2');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 5000;
-const hostels = require('./dummyHostels.json');
 
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/hostels', (req, res) => {
-    res.json(hostels);
+// ✅ MySQL Connection
+const db = mysql.createConnection({
+    host: process.env.DB_HOST,     // e.g. 'localhost'
+    user: process.env.DB_USER,     // e.g. 'root'
+    password: process.env.DB_PASS, // your MySQL password
+    database: process.env.DB_NAME,  // e.g. 'vidyamarg'
+    port: process.env.DB_PORT
 });
 
-// Send email
+db.connect(err => {
+    if (err) {
+        console.error('❌ MySQL connection failed:', err);
+        return;
+    }
+    console.log('✅ Connected to MySQL');
+});
+
+// ------------------ APIs ------------------
+
+// Get all hostels
+app.get('/api/hostels', (req, res) => {
+  const query = `
+    SELECT 
+      hi.hostel_id, hi.hostel_name, hi.owner_name, hi.gender, hi.address,
+      hi.common_amenities, hi.inroom_amenities, hi.area_tag, hi.sub_area_tag,
+      hi.total_beds, hi.beds_available, hi.contact_number, hi.email_id,
+      hi.about_hostel, hi.building_age_years,
+      hrt.room_type, hrt.price_per_person, hrt.security_deposit, hrt.payment_frequency, hrt.room_size_sqft
+    FROM hostel_information hi
+    LEFT JOIN hostel_room_types hrt ON hi.hostel_id = hrt.hostel_id;
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('❌ Error fetching hostels:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Group data into the required payload format
+    const hostels = {};
+    results.forEach(row => {
+      if (!hostels[row.hostel_id]) {
+        hostels[row.hostel_id] = {
+          hostel_information: {
+            hostel_name: row.hostel_name,
+            owner_name: row.owner_name,
+            gender: row.gender,
+            address: row.address,
+            common_amenities: row.common_amenities ? JSON.parse(row.common_amenities) : [],
+            inroom_amenities: row.inroom_amenities ? JSON.parse(row.inroom_amenities) : [],
+            area_tag: row.area_tag,
+            sub_area_tag: row.sub_area_tag,
+            total_beds: row.total_beds,
+            beds_available: row.beds_available,
+            contact_number: row.contact_number,
+            email_id: row.email_id,
+            about_hostel: row.about_hostel,
+            building_age_years: row.building_age_years
+          },
+          hostel_room_types: []
+        };
+      }
+
+      if (row.room_type) {
+        hostels[row.hostel_id].hostel_room_types.push({
+            room_type: row.room_type,
+            price_per_person: row.price_per_person,
+            security_deposit: row.security_deposit,
+            payment_frequency: row.payment_frequency,
+            room_size_sqft: row.room_size_sqft
+        });
+      }
+    });
+
+    const response = Object.values(hostels);
+
+    // 👉 Console the structured response
+    console.log("✅ Hostels API Response:", JSON.stringify(response, null, 2));
+
+    res.json(response);
+  });
+});
+
+
+// Add new hostel
+app.post('/api/hostels', (req, res) => {
+    console.log('Request Body Node:', req.body);
+
+    const { hostel_information, hostel_room_types } = req.body;
+
+    if (!hostel_information) {
+        return res.status(400).json({ error: 'hostel_information is required' });
+    }
+
+    const {
+        hostel_name,
+        owner_name,
+        gender,
+        address,
+        common_amenities,
+        inroom_amenities,
+        area_tag,
+        sub_area_tag,
+        total_beds,
+        beds_available,
+        contact_number,
+        email_id,
+        about_hostel,
+        building_age_years
+    } = hostel_information;
+
+    // Insert into hostel_information
+    const hostelQuery = `
+        INSERT INTO hostel_information 
+        (hostel_name, owner_name, gender, address, common_amenities, inroom_amenities, area_tag, sub_area_tag, total_beds, beds_available, contact_number, email_id, about_hostel, building_age_years) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    db.query(
+        hostelQuery,
+        [
+            hostel_name,
+            owner_name,
+            gender,
+            address,
+            JSON.stringify(common_amenities),  // store array as JSON
+            JSON.stringify(inroom_amenities),
+            area_tag,
+            sub_area_tag,
+            total_beds,
+            beds_available,
+            contact_number,
+            email_id,
+            about_hostel,
+            building_age_years
+        ],
+        (err, result) => {
+            if (err) {
+                console.error('❌ Error inserting hostel:', err);
+                return res.status(500).json({ error: 'Database error' });
+            }
+
+            const hostelId = result.insertId;
+
+            // Insert room types (if provided)
+            if (hostel_room_types && hostel_room_types.length > 0) {
+                const roomQuery = `
+                    INSERT INTO hostel_room_types 
+                    (hostel_id, room_type, price_per_person, security_deposit, payment_frequency, room_size_sqft) 
+                    VALUES ?
+                `;
+
+                const values = hostel_room_types.map(rt => [
+                    hostelId,
+                    rt.room_type,
+                    rt.price,
+                    rt.deposit,
+                    rt.frequency,
+                    rt.size
+                ]);
+
+                db.query(roomQuery, [values], (err2) => {
+                    if (err2) {
+                        console.error('❌ Error inserting room types:', err2);
+                        return res.status(500).json({ error: 'Database error inserting room types' });
+                    }
+                    res.status(201).json({ message: '✅ Hostel and rooms added successfully!' });
+                });
+            } else {
+                res.status(201).json({ message: '✅ Hostel added successfully (no rooms provided)' });
+            }
+        }
+    );
+});
+
+
+// Send email (Booking request)
 app.post('/api/send-mail', async (req, res) => {
     const { name, age, educationDomain, locationPreference, email, mobile, hostelName, hostelId } = req.body;
 
@@ -44,13 +216,14 @@ app.post('/api/send-mail', async (req, res) => {
 
     try {
         const info = await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Mail sent successfully! Server', info });
+        res.status(200).json({ message: '✅ Mail sent successfully!', info });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error sending mail Server', error });
+        console.error('❌ Mail error:', error);
+        res.status(500).json({ message: 'Error sending mail', error });
     }
 });
 
+// Start server
 app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+    console.log(`🚀 Server running at https://localhost:${port}`);
 });
