@@ -29,7 +29,7 @@ db.connect(err => {
 
 // ------------------ APIs ------------------
 
-// Get all hostels
+// Get all hostels with images
 app.get('/api/hostels', (req, res) => {
   const query = `
     SELECT 
@@ -37,9 +37,11 @@ app.get('/api/hostels', (req, res) => {
       hi.common_amenities, hi.inroom_amenities, hi.area_tag, hi.sub_area_tag,
       hi.total_beds, hi.beds_available, hi.contact_number, hi.email_id,
       hi.about_hostel, hi.building_age_years,
-      hrt.room_type, hrt.price_per_person, hrt.security_deposit, hrt.payment_frequency, hrt.room_size_sqft
+      hrt.room_type, hrt.price_per_person, hrt.security_deposit, hrt.payment_frequency, hrt.room_size_sqft,
+      him.image_url
     FROM hostel_information hi
-    LEFT JOIN hostel_room_types hrt ON hi.hostel_id = hrt.hostel_id;
+    LEFT JOIN hostel_room_types hrt ON hi.hostel_id = hrt.hostel_id
+    LEFT JOIN hostel_images him ON hi.hostel_id = him.hostel_id;
   `;
 
   db.query(query, (err, results) => {
@@ -48,7 +50,6 @@ app.get('/api/hostels', (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    // Group data into the required payload format
     const hostels = {};
     results.forEach(row => {
       if (!hostels[row.hostel_id]) {
@@ -69,36 +70,39 @@ app.get('/api/hostels', (req, res) => {
             about_hostel: row.about_hostel,
             building_age_years: row.building_age_years
           },
-          hostel_room_types: []
+          hostel_room_types: [],
+          images: []
         };
       }
 
       if (row.room_type) {
         hostels[row.hostel_id].hostel_room_types.push({
-            room_type: row.room_type,
-            price_per_person: row.price_per_person,
-            security_deposit: row.security_deposit,
-            payment_frequency: row.payment_frequency,
-            room_size_sqft: row.room_size_sqft
+          room_type: row.room_type,
+          price_per_person: row.price_per_person,
+          security_deposit: row.security_deposit,
+          payment_frequency: row.payment_frequency,
+          room_size_sqft: row.room_size_sqft
         });
+      }
+
+      if (row.image_url && !hostels[row.hostel_id].images.includes(row.image_url)) {
+        hostels[row.hostel_id].images.push(row.image_url);
       }
     });
 
     const response = Object.values(hostels);
-
-    // 👉 Console the structured response
-    console.log("✅ Hostels API Response:", JSON.stringify(response, null, 2));
-
     res.json(response);
   });
 });
 
 
-// Add new hostel
+
 app.post('/api/hostels', (req, res) => {
     console.log('Request Body Node:', req.body);
 
-    const { hostel_information, hostel_room_types } = req.body;
+    const { hostel_information, hostel_room_types, hostel_images } = req.body;
+    console.log('Hostel Images:', hostel_images);
+    
 
     if (!hostel_information) {
         return res.status(400).json({ error: 'hostel_information is required' });
@@ -121,7 +125,6 @@ app.post('/api/hostels', (req, res) => {
         building_age_years
     } = hostel_information;
 
-    // Insert into hostel_information
     const hostelQuery = `
         INSERT INTO hostel_information 
         (hostel_name, owner_name, gender, address, common_amenities, inroom_amenities, area_tag, sub_area_tag, total_beds, beds_available, contact_number, email_id, about_hostel, building_age_years) 
@@ -135,7 +138,7 @@ app.post('/api/hostels', (req, res) => {
             owner_name,
             gender,
             address,
-            JSON.stringify(common_amenities),  // store array as JSON
+            JSON.stringify(common_amenities),
             JSON.stringify(inroom_amenities),
             area_tag,
             sub_area_tag,
@@ -154,36 +157,74 @@ app.post('/api/hostels', (req, res) => {
 
             const hostelId = result.insertId;
 
-            // Insert room types (if provided)
-            if (hostel_room_types && hostel_room_types.length > 0) {
-                const roomQuery = `
-                    INSERT INTO hostel_room_types 
-                    (hostel_id, room_type, price_per_person, security_deposit, payment_frequency, room_size_sqft) 
-                    VALUES ?
-                `;
+            // Insert hostel room types
+            const insertRooms = () => {
+                if (hostel_room_types && hostel_room_types.length > 0) {
+                    const roomQuery = `
+                        INSERT INTO hostel_room_types 
+                        (hostel_id, room_type, price_per_person, security_deposit, payment_frequency, room_size_sqft) 
+                        VALUES ?
+                    `;
 
-                const values = hostel_room_types.map(rt => [
-                    hostelId,
-                    rt.room_type,
-                    rt.price,
-                    rt.deposit,
-                    rt.frequency,
-                    rt.size
-                ]);
+                    const values = hostel_room_types.map(rt => [
+                        hostelId,
+                        rt.room_type,
+                        rt.price,
+                        rt.deposit,
+                        rt.frequency,
+                        rt.size
+                    ]);
 
-                db.query(roomQuery, [values], (err2) => {
-                    if (err2) {
-                        console.error('❌ Error inserting room types:', err2);
-                        return res.status(500).json({ error: 'Database error inserting room types' });
-                    }
-                    res.status(201).json({ message: '✅ Hostel and rooms added successfully!' });
+                    return new Promise((resolve, reject) => {
+                        db.query(roomQuery, [values], (err2) => {
+                            if (err2) {
+                                console.error('❌ Error inserting room types:', err2);
+                                return reject('Database error inserting room types');
+                            }
+                            resolve();
+                        });
+                    });
+                }
+                return Promise.resolve();
+            };
+
+            // Insert hostel images
+            const insertImages = () => {
+                if (hostel_images && hostel_images.length > 0) {
+                    const imageQuery = `
+                        INSERT INTO hostel_images 
+                        (hostel_id, image_url) 
+                        VALUES ?
+                    `;
+
+                    const values = hostel_images.map(url => [hostelId, url]);
+
+                    return new Promise((resolve, reject) => {
+                        db.query(imageQuery, [values], (err3) => {
+                            if (err3) {
+                                console.error('❌ Error inserting hostel images:', err3);
+                                return reject('Database error inserting images');
+                            }
+                            resolve();
+                        });
+                    });
+                }
+                return Promise.resolve();
+            };
+
+            // Chain all insertions
+            insertRooms()
+                .then(insertImages)
+                .then(() => {
+                    res.status(201).json({ message: '✅ Hostel, rooms, and images added successfully!' });
+                })
+                .catch((errMsg) => {
+                    res.status(500).json({ error: errMsg });
                 });
-            } else {
-                res.status(201).json({ message: '✅ Hostel added successfully (no rooms provided)' });
-            }
         }
     );
 });
+
 
 
 // Send email (Booking request)
